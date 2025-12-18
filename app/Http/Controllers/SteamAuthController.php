@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Http\Controllers;
+
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use App\Models\Users;
@@ -32,8 +33,7 @@ class SteamAuthController extends Controller
         $params = $request->all();
         $params['openid.mode'] = 'check_authentication';
 
-        $response = Http::asForm()
-            ->post('https://steamcommunity.com/openid/login', $params);
+        Http::asForm()->post('https://steamcommunity.com/openid/login', $params);
 
         preg_match(
             '/https:\/\/steamcommunity.com\/openid\/id\/(\d+)/',
@@ -47,16 +47,35 @@ class SteamAuthController extends Controller
             return response()->json(['error' => 'SteamID não encontrado'], 401);
         }
 
-        $user = Users::firstOrCreate(
+        $steamApiKey = env('STEAM_API_KEY');
+
+        $profile = Http::get("https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/", [
+            'key' => $steamApiKey,
+            'steamids' => $steamId
+        ])->json();
+
+        $player = $profile['response']['players'][0] ?? null;
+
+        if (!$player) {
+            return response()->json(['error' => 'Falha ao buscar perfil Steam'], 500);
+        }
+
+        $user = Users::updateOrCreate(
             ['steam_id' => $steamId],
-            ['name' => 'Steam User']
+            [
+                'display_name' => $player['personaname'] ?? 'Steam User',
+                'avatar'       => $player['avatarfull'] ?? null,
+                'username'     => $player['personaname'] ?? 'Steam User',
+                'is_active'    => true,
+            ]
         );
 
         $token = $user->createToken('mobile')->plainTextToken;
 
         return response()->json([
-            'token' => $token,
-            'steam_id' => $steamId
+            'token'    => $token,
+            'steam_id' => $steamId,
+            'user'     => $user,
         ]);
     }
 }

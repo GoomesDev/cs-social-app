@@ -17,7 +17,6 @@ class Users extends Model
         'username',
         'display_name',
         'avatar',
-        'email',
         'is_active',
     ];
 

@@ -15,7 +15,6 @@ return new class extends Migration
             $table->string('username', 50)->nullable();
             $table->string('display_name', 100);
             $table->text('avatar')->nullable();
-            $table->string('email', 150)->nullable()->unique();
             $table->boolean('is_active')->default(true);
             $table->timestamps();
 
