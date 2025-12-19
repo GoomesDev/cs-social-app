@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class UserStatSnapshot extends Model
+class UserStatSnapshots extends Model
 {
     use HasFactory;
 
@@ -19,11 +19,11 @@ class UserStatSnapshot extends Model
         'losses',
         'kills',
         'deaths',
-        'assists',
         'mvps',
-        'bomb_planted',
-        'bomb_defused',
+        'bombs_planted',
+        'bombs_defused',
         'headshots',
+        'headshot_percentage',
         'kd_ratio',
         'rating',
         'win_rate',
@@ -36,11 +36,11 @@ class UserStatSnapshot extends Model
         'losses' => 'integer',
         'kills' => 'integer',
         'deaths' => 'integer',
-        'assists' => 'integer',
         'mvps' => 'integer',
-        'bomb_planted' => 'integer',
-        'bomb_defused' => 'integer',
+        'bombs_planted' => 'integer',
+        'bombs_defused' => 'integer',
         'headshots' => 'integer',
+        'headshot_percentage' => 'decimal:2',
         'kd_ratio' => 'decimal:2',
         'rating' => 'decimal:2',
         'win_rate' => 'decimal:2',

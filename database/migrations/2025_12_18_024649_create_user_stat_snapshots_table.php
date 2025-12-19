@@ -22,13 +22,12 @@ return new class extends Migration
             $table->integer('losses')->default(0);
             $table->integer('kills')->default(0);
             $table->integer('deaths')->default(0);
-            $table->integer('assists')->default(0);
             $table->integer('mvps')->default(0);
-            $table->integer('bomb_planted')->default(0);
-            $table->integer('bomb_defused')->default(0);
+            $table->integer('bombs_planted')->default(0);
+            $table->integer('bombs_defused')->default(0);
             $table->integer('headshots')->default(0);
+            $table->decimal('headshot_percentage', 5, 2)->default(0);
 
-            // Estatísticas calculadas
             $table->decimal('kd_ratio', 6, 2)->default(0);
             $table->decimal('rating', 6, 2)->default(0);
             $table->decimal('win_rate', 6, 2)->default(0);

@@ -20,7 +20,7 @@ class SteamAuthController extends Controller
         ];
 
         return redirect(
-            'https://steamcommunity.com/openid/login?' . http_build_query($params)
+            config('services.steam.openid_url') . '?' . http_build_query($params)
         );
     }
 
@@ -33,7 +33,7 @@ class SteamAuthController extends Controller
         $params = $request->all();
         $params['openid.mode'] = 'check_authentication';
 
-        Http::asForm()->post('https://steamcommunity.com/openid/login', $params);
+        Http::asForm()->post(config('services.steam.openid_url'), $params);
 
         preg_match(
             '/https:\/\/steamcommunity.com\/openid\/id\/(\d+)/',
@@ -47,9 +47,9 @@ class SteamAuthController extends Controller
             return response()->json(['error' => 'SteamID não encontrado'], 401);
         }
 
-        $steamApiKey = env('STEAM_API_KEY');
+        $steamApiKey = config('services.steam.api_key');
 
-        $profile = Http::get("https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/", [
+        $profile = Http::get(config('services.steam.api_base') . config('services.steam.api_player_summary'), [
             'key' => $steamApiKey,
             'steamids' => $steamId
         ])->json();
@@ -66,6 +66,8 @@ class SteamAuthController extends Controller
                 'display_name' => $player['personaname'] ?? 'Steam User',
                 'avatar'       => $player['avatarfull'] ?? null,
                 'username'     => $player['personaname'] ?? 'Steam User',
+                'profile_url'  => $player['profileurl'] ?? null,
+                'last_sync_at' => now(),
                 'is_active'    => true,
             ]
         );

@@ -17,7 +17,13 @@ class UsersFactory extends Factory
     public function definition(): array
     {
         return [
-            //
+            'steam_id' => $this->faker->unique()->numerify('7656119##########'),
+            'username' => $this->faker->userName(),
+            'profile_url' => $this->faker->url(),
+            'display_name' => $this->faker->name(),
+            'avatar' => $this->faker->imageUrl(),
+            'is_active' => true,
+            'last_sync_at' => now(),
         ];
     }
 }

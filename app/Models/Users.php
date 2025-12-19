@@ -15,7 +15,9 @@ class Users extends Model
     protected $fillable = [
         'steam_id',
         'username',
+        'profile_url',
         'display_name',
+        'last_sync_at',
         'avatar',
         'is_active',
     ];
@@ -29,11 +31,6 @@ class Users extends Model
     protected $casts = [
         'is_active' => 'boolean',
     ];
-
-    public function steamProfile()
-    {
-        return $this->hasOne(SteamProfile::class);
-    }
 
     public function friends()
     {

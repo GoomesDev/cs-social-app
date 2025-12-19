@@ -35,4 +35,12 @@ return [
         ],
     ],
 
+    'steam' => [
+        'openid_url' => env('STEAM_OPENID_URL'),
+        'api_key' => env('STEAM_API_KEY'),
+        'api_base' => env('STEAM_API_BASE'),
+        'api_player_summary' => env('STEAM_API_PLAYER_SUMMARY'),
+        'api_player_stats' => env('STEAM_API_PLAYER_STATS'),
+        'app_id' => env('STEAM_APP_ID'),
+    ],
 ];
