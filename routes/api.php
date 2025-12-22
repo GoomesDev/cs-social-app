@@ -8,4 +8,5 @@ Route::get('/get-profile/{userId}', [UsersController::class, 'getProfile']);
 
 Route::prefix('player-stats')->group(function () {
     Route::get('/{userId}', [UserStatSnapshotsController::class, 'getSnapshotByUser']);
+    Route::get('daily-snapshot/{userId}', [UserStatSnapshotsController::class, 'getDailyStats']);
 });

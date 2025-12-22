@@ -42,30 +42,74 @@ class UserStatSnapshotsController extends Controller
 
     private function createSnapshot($userId, $stats)
     {
-        $createSnapshot = new UserStatSnapshots();
+        $data = [
+            'user_id' => $userId,
+            'snapshot_date' => now(),
+            'matches' => $stats['total_matches_played'] ?? 0,
+            'rounds' => $stats['total_rounds_played'] ?? 0,
+            'wins' => $stats['total_matches_won'] ?? 0,
+            'losses' => ($stats['total_matches_played'] ?? 0) - ($stats['total_matches_won'] ?? 0),
+            'kills' => $stats['total_kills'] ?? 0,
+            'deaths' => $stats['total_deaths'] ?? 0,
+            'mvps' => $stats['total_mvps'] ?? 0,
+            'bombs_planted' => $stats['total_planted_bombs'] ?? 0,
+            'bombs_defused' => $stats['total_defused_bombs'] ?? 0,
+            'headshots' => $stats['total_kills_headshot'] ?? 0,
+        ];
+
+        $model = new UserStatSnapshots($data);
+        $data['headshot_percentage'] = $model->headshot_percentage;
+        $data['kd_ratio'] = $model->kd_ratio;
+        $data['rating'] = $model->rating;
+        $data['win_rate'] = $model->win_rate;
         try {
-            $createSnapshot::create([
-                'user_id' => $userId,
-                'snapshot_date' => now(),
-                'matches' => $stats['total_matches_played'] ?? 0,
-                'wins' => $stats['total_matches_won'] ?? 0,
-                'losses' => $stats['total_matches_played'] - ($stats['total_matches_won'] ?? 0),
-                'kills' => $stats['total_kills'] ?? 0,
-                'deaths' => $stats['total_deaths'] ?? 0,
-                'mvp' => $stats['total_mvps'] ?? 0,
-                'bombs_planted' => $stats['total_planted_bombs'] ?? 0,
-                'bombs_defused' => $stats['total_defused_bombs'] ?? 0,
-                'headshots' => $stats['total_kills_headshot'] ?? 0,
-                'headshot_percentage' => isset($stats['total_kills']) && $stats['total_kills'] > 0 ? round(($stats['total_kills_headshot'] / $stats['total_kills']) * 100, 2) : 0,
-                'kd_ratio' => $stats['total_kills'] > 0 ? round($stats['total_kills'] / max(1, $stats['total_deaths']), 2) : 0,
-                'rating' => $stats['total_kills'] > 0 ? round(($stats['total_kills'] / max(1, $stats['total_deaths'])), 2) : 0,
-                'win_rate' => $stats['total_matches_played'] > 0 ? round(($stats['total_matches_won'] / $stats['total_matches_played']) * 100, 2) : 0,
-            ]);
+            UserStatSnapshots::create($data);
         } catch (\Exception $e) {
             \Log::error('Erro ao criar snapshot: ' . $e->getMessage());
             return response()->json(['error' => 'Erro ao criar snapshot'], 500);
         }
 
         return response()->json(['message' => 'Snapshot criado com sucesso']);
+    }
+
+    public function getDailyStats($userId)
+    {
+        $snapshots = UserStatSnapshots::where('user_id', $userId)
+            ->orderBy('snapshot_date', 'desc')
+            ->take(2)
+            ->get();
+
+        if ($snapshots->count() < 2) {
+            return response()->json(['error' => 'Não há snapshots suficientes para calcular stats diários'], 400);
+        }
+
+        $current = $snapshots[0];
+        $previous = $snapshots[1];
+
+        $fields = [
+            'kills', 
+            'deaths', 
+            'mvps', 
+            'bombs_planted', 
+            'bombs_defused', 
+            'headshots',
+            'matches', 
+            'wins', 
+            'losses', 
+            'rounds'
+        ];
+
+        $diff = [];
+        foreach ($fields as $field) {
+            $diff[$field] = ($current->$field ?? 0) - ($previous->$field ?? 0);
+        }
+
+        $temp = new UserStatSnapshots($diff);
+        $diff['kd_ratio'] = $temp->kd_ratio;
+        $diff['win_rate'] = $temp->win_rate;
+        $diff['headshot_percentage'] = $temp->headshot_percentage;
+        $diff['rating'] = $temp->rating;
+
+        return response()->json(['daily_stats' => $diff]);
     }
 }

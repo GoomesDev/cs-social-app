@@ -17,6 +17,7 @@ class UserStatSnapshots extends Model
         'matches',
         'wins',
         'losses',
+        'rounds',
         'kills',
         'deaths',
         'mvps',
@@ -34,6 +35,7 @@ class UserStatSnapshots extends Model
         'matches' => 'integer',
         'wins' => 'integer',
         'losses' => 'integer',
+        'rounds' => 'integer',
         'kills' => 'integer',
         'deaths' => 'integer',
         'mvps' => 'integer',
@@ -79,15 +81,39 @@ class UserStatSnapshots extends Model
             : 0;
     }
 
-    public function getRatingAttribute($value)
+    public function getHeadshotPercentageAttribute($value)
     {
         if ($value !== null) {
             return round($value, 2);
         }
 
-        $kd = $this->kd_ratio;
-        $winRate = $this->win_rate / 100;
+        $kills = $this->kills ?? 0;
+        $headshots = $this->headshots ?? 0;
+        return $kills > 0
+            ? round(($headshots / $kills) * 100, 2)
+            : 0;
+    }
 
-        return round($kd + $winRate, 2);
+    public function getRatingAttribute($value)
+    {
+        if ($this->rounds === null) {
+            $rounds = $this->matches > 0 ? $this->matches * 30 : 0;
+        }
+        if ($this->rounds <= 0) {
+            return null;
+        }
+
+        $kills = $this->kills ?? 0;
+        $deaths = $this->deaths ?? 0;
+        $mvps = $this->mvps ?? 0;
+        $headshots = $this->headshots ?? 0;
+
+        $kpr = $kills / $this->rounds;
+        $dpr = $deaths / $this->rounds;
+        $mvppr = $mvps / $this->rounds;
+        $hs = $kills > 0 ? $headshots / $kills : 0;
+
+        $rating = 0.7 * $kpr + 0.3 * (1 - $dpr) + 0.1 * $mvppr + 0.1 * $hs;
+        return round($rating, 2);
     }
 }

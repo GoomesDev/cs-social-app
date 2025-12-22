@@ -20,6 +20,7 @@ return new class extends Migration
             $table->integer('matches')->default(0);
             $table->integer('wins')->default(0);
             $table->integer('losses')->default(0);
+            $table->integer('rounds')->default(0);
             $table->integer('kills')->default(0);
             $table->integer('deaths')->default(0);
             $table->integer('mvps')->default(0);
