@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\Users;
 use Illuminate\Support\Facades\Http;
 use App\Models\UserStatSnapshots;
+use App\Services\ScoreCalculator;
 
 class UserStatSnapshotsController extends Controller
 {
@@ -42,28 +43,46 @@ class UserStatSnapshotsController extends Controller
 
     private function createSnapshot($userId, $stats)
     {
+        $kills     = $stats['total_kills'] ?? 0;
+        $deaths    = $stats['total_deaths'] ?? 0;
+        $wins      = $stats['total_matches_won'] ?? 0;
+        $matches   = $stats['total_matches_played'] ?? 0;
+        $headshots = $stats['total_kills_headshot'] ?? 0;
+        $mvps      = $stats['total_mvps'] ?? 0;
+        $rounds    = $stats['total_rounds_played'] ?? 0;
+
+        $kdRatio             = ScoreCalculator::calculateKDRatio($kills, $deaths);
+        $winRate             = ScoreCalculator::calculateWinRate($wins, $matches);
+        $headshotPercentage  = ScoreCalculator::calculateHeadshotPercentage($headshots, $kills);
+
         $data = [
-            'user_id' => $userId,
-            'snapshot_date' => now(),
-            'matches' => $stats['total_matches_played'] ?? 0,
-            'rounds' => $stats['total_rounds_played'] ?? 0,
-            'wins' => $stats['total_matches_won'] ?? 0,
-            'losses' => ($stats['total_matches_played'] ?? 0) - ($stats['total_matches_won'] ?? 0),
-            'kills' => $stats['total_kills'] ?? 0,
-            'deaths' => $stats['total_deaths'] ?? 0,
-            'mvps' => $stats['total_mvps'] ?? 0,
-            'bombs_planted' => $stats['total_planted_bombs'] ?? 0,
-            'bombs_defused' => $stats['total_defused_bombs'] ?? 0,
-            'headshots' => $stats['total_kills_headshot'] ?? 0,
+            'user_id'             => $userId,
+            'snapshot_date'       => now()->toDateString(),
+            'matches'             => $matches,
+            'rounds'              => $rounds,
+            'wins'                => $wins,
+            'losses'              => $matches - $wins,
+            'kills'               => $kills,
+            'deaths'              => $deaths,
+            'mvps'                => $mvps,
+            'bombs_planted'       => $stats['total_planted_bombs'] ?? 0,
+            'bombs_defused'       => $stats['total_defused_bombs'] ?? 0,
+            'headshots'           => $headshots,
+            'headshot_percentage' => $headshotPercentage,
+            'kd_ratio'            => $kdRatio,
+            'win_rate'            => $winRate,
+            'rating'              => ScoreCalculator::calculateRating($kills, $deaths, $mvps, $headshots, $rounds),
+            'impact_score'        => ScoreCalculator::calculateImpactScore($kdRatio, $headshotPercentage, $winRate, $mvps, $matches),
         ];
 
-        $model = new UserStatSnapshots($data);
-        $data['headshot_percentage'] = $model->headshot_percentage;
-        $data['kd_ratio'] = $model->kd_ratio;
-        $data['rating'] = $model->rating;
-        $data['win_rate'] = $model->win_rate;
         try {
-            UserStatSnapshots::create($data);
+            $snapshot = UserStatSnapshots::updateOrCreate(
+                [
+                    'user_id'       => $userId,
+                    'snapshot_date' => now()->toDateString(),
+                ],
+                $data
+            );
         } catch (\Exception $e) {
             \Log::error('Erro ao criar snapshot: ' . $e->getMessage());
             return response()->json(['error' => 'Erro ao criar snapshot'], 500);
@@ -83,20 +102,22 @@ class UserStatSnapshotsController extends Controller
             return response()->json(['error' => 'Não há snapshots suficientes para calcular stats diários'], 400);
         }
 
-        $current = $snapshots[0];
+        $current  = $snapshots[0];
         $previous = $snapshots[1];
 
+        $daysBetween = $previous->snapshot_date->diffInDays($current->snapshot_date);
+
+        if ($daysBetween > 1) {
+            return response()->json([
+                'error' => 'Snapshots muito distantes para calcular stats diários',
+                'days_between' => $daysBetween,
+            ], 422);
+        }
+
         $fields = [
-            'kills', 
-            'deaths', 
-            'mvps', 
-            'bombs_planted', 
-            'bombs_defused', 
-            'headshots',
-            'matches', 
-            'wins', 
-            'losses', 
-            'rounds'
+            'kills', 'deaths', 'mvps',
+            'bombs_planted', 'bombs_defused', 'headshots',
+            'matches', 'wins', 'losses', 'rounds',
         ];
 
         $diff = [];
@@ -105,10 +126,10 @@ class UserStatSnapshotsController extends Controller
         }
 
         $temp = new UserStatSnapshots($diff);
-        $diff['kd_ratio'] = $temp->kd_ratio;
-        $diff['win_rate'] = $temp->win_rate;
+        $diff['kd_ratio']            = $temp->kd_ratio;
+        $diff['win_rate']            = $temp->win_rate;
         $diff['headshot_percentage'] = $temp->headshot_percentage;
-        $diff['rating'] = $temp->rating;
+        $diff['rating']              = $temp->rating;
 
         return response()->json(['daily_stats' => $diff]);
     }
