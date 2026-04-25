@@ -29,6 +29,7 @@ class UserStatSnapshots extends Model
         'rating',
         'win_rate',
         'impact_score',
+        'kdd'
     ];
 
     protected $casts = [
@@ -48,6 +49,7 @@ class UserStatSnapshots extends Model
         'rating' => 'decimal:2',
         'win_rate' => 'decimal:2',
         'impact_score' => 'decimal:2',
+        'kdd' => 'integer'
     ];
 
     public function user()

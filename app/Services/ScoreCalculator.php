@@ -63,4 +63,11 @@ class ScoreCalculator
 
         return round($score, 2);
     }
+
+    public static function calculateKDD(
+    int $kills,
+    int $deaths
+    ): int {
+        return $kills - $deaths;
+    }
 }

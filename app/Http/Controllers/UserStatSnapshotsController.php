@@ -73,6 +73,7 @@ class UserStatSnapshotsController extends Controller
             'win_rate'            => $winRate,
             'rating'              => ScoreCalculator::calculateRating($kills, $deaths, $mvps, $headshots, $rounds),
             'impact_score'        => ScoreCalculator::calculateImpactScore($kdRatio, $headshotPercentage, $winRate, $mvps, $matches),
+            'kdd'                 => ScoreCalculator::calculateKDD($kills, $deaths),
         ];
 
         try {
@@ -91,9 +92,15 @@ class UserStatSnapshotsController extends Controller
         return response()->json(['message' => 'Snapshot criado com sucesso']);
     }
 
-    public function getDailyStats($userId)
+    public function getDailyStats($userId, $date)
     {
-        $snapshots = UserStatSnapshots::where('user_id', $userId)
+        $snapshots = UserStatSnapshots::where('user_id', $userId);
+        
+        if ($date) {
+            $snapshots->where('snapshot_date', $date);
+        }
+        
+        $snapshots = $snapshots
             ->orderBy('snapshot_date', 'desc')
             ->take(2)
             ->get();
@@ -132,5 +139,56 @@ class UserStatSnapshotsController extends Controller
         $diff['rating']              = $temp->rating;
 
         return response()->json(['daily_stats' => $diff]);
+    }
+
+    public function getWeeklyStats($userId, $startDate = null)
+    {
+        if (!$startDate) {
+            $startDate = now()->startOfWeek(0);
+        } else {
+            $startDate = Carbon::parse($startDate)->startOfWeek(0);
+        }
+        
+        $endDate = $startDate->copy()->endOfWeek(0);
+
+        $snapshots = UserStatSnapshots::where('user_id', $userId)
+            ->whereBetween('snapshot_date', [$startDate, $endDate])
+            ->orderBy('snapshot_date', 'asc')
+            ->get();
+
+        if ($snapshots->count() < 2) {
+            return response()->json(['error' => 'Não há snapshots suficientes para calcular stats semanais'], 400);
+        }
+
+        $first  = $snapshots->first();
+        $last   = $snapshots->last();
+
+        $daysBetween = $first->snapshot_date->diffInDays($last->snapshot_date);
+
+        $fields = [
+            'kills', 'deaths', 'mvps',
+            'bombs_planted', 'bombs_defused', 'headshots',
+            'matches', 'wins', 'losses', 'rounds',
+        ];
+
+        $diff = [];
+        foreach ($fields as $field) {
+            $diff[$field] = ($last->$field ?? 0) - ($first->$field ?? 0);
+        }
+
+        $temp = new UserStatSnapshots($diff);
+        $diff['kd_ratio']            = $temp->kd_ratio;
+        $diff['win_rate']            = $temp->win_rate;
+        $diff['headshot_percentage'] = $temp->headshot_percentage;
+        $diff['rating']              = $temp->rating;
+
+        return response()->json([
+            'weekly_stats' => $diff,
+            'period' => [
+                'start_date' => $first->snapshot_date,
+                'end_date'   => $last->snapshot_date,
+                'days_between' => $daysBetween,
+            ]
+        ]);
     }
 }
