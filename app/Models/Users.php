@@ -2,11 +2,11 @@
 
 namespace App\Models;
 
-use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Laravel\Sanctum\HasApiTokens;
 
-class Users extends Model
+class Users extends Authenticatable
 {
     use HasApiTokens, HasFactory;
 
@@ -18,6 +18,7 @@ class Users extends Model
         'profile_url',
         'display_name',
         'last_sync_at',
+        'friends_synced_at',
         'avatar',
         'is_active',
     ];
@@ -30,6 +31,8 @@ class Users extends Model
 
     protected $casts = [
         'is_active' => 'boolean',
+        'last_sync_at' => 'datetime',
+        'friends_synced_at' => 'datetime',
     ];
 
     public function friends()
