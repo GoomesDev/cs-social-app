@@ -15,8 +15,12 @@ class FriendsController extends Controller
             return response()->json(['error' => 'account_inactive'], 403);
         }
 
+        $validated = $request->validate([
+            'page' => ['sometimes', 'integer', 'min:1'],
+        ]);
+
         try {
-            return response()->json($friends->forUser($request->user()))
+            return response()->json($friends->forUser($request->user(), (int) ($validated['page'] ?? 1)))
                 ->header('Cache-Control', 'private, no-store');
         } catch (Throwable $exception) {
             $error = $exception instanceof RuntimeException ? $exception->getMessage() : '';

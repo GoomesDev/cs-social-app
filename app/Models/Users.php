@@ -54,4 +54,20 @@ class Users extends Authenticatable
             'user_id'
         );
     }
+
+    public function ownedGroups()
+    {
+        return $this->hasMany(Group::class, 'owner_id');
+    }
+
+    public function groups()
+    {
+        return $this->belongsToMany(Group::class, 'group_members', 'user_id', 'group_id')
+            ->withPivot('created_at');
+    }
+
+    public function activities()
+    {
+        return $this->hasMany(ActivityFeedItem::class, 'actor_id');
+    }
 }

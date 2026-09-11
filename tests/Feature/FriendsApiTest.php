@@ -62,7 +62,9 @@ class FriendsApiTest extends IsolatedDatabaseTestCase
     {
         $this->login();
         $this->fake([]);
-        $this->getJson('/api/friends')->assertOk()->assertJsonPath('data', [])->assertJsonPath('meta.total', 0);
+        $this->getJson('/api/friends')->assertOk()->assertJsonPath('data', [])->assertJsonPath('meta.total', 0)
+            ->assertJsonPath('meta.current_page', 1)->assertJsonPath('meta.per_page', 25)
+            ->assertJsonPath('meta.last_page', 1)->assertJsonPath('meta.has_more', false);
         Http::assertSentCount(1);
     }
 
@@ -94,9 +96,32 @@ class FriendsApiTest extends IsolatedDatabaseTestCase
         $this->login();
         $ids = array_map(fn ($i) => (string) (76561198000000000 + $i), range(1, 101));
         $this->fake($ids);
-        $this->getJson('/api/friends')->assertOk()->assertJsonCount(101, 'data');
+        $this->getJson('/api/friends')->assertOk()->assertJsonCount(25, 'data')
+            ->assertJsonPath('meta.total', 101)->assertJsonPath('meta.current_page', 1)
+            ->assertJsonPath('meta.per_page', 25)->assertJsonPath('meta.last_page', 5)
+            ->assertJsonPath('meta.has_more', true);
         Http::assertSentCount(3);
         Http::assertNotSent(fn ($request) => isset($request['steamids']) && count(explode(',', $request['steamids'])) > 100);
+    }
+
+    public function test_returns_the_requested_page_with_25_friends(): void
+    {
+        $this->login();
+        $ids = array_map(fn ($i) => (string) (76561198000000000 + $i), range(1, 51));
+        $this->fake($ids);
+
+        $this->getJson('/api/friends?page=3')->assertOk()->assertJsonCount(1, 'data')
+            ->assertJsonPath('meta.total', 51)->assertJsonPath('meta.current_page', 3)
+            ->assertJsonPath('meta.last_page', 3)->assertJsonPath('meta.has_more', false);
+    }
+
+    public function test_rejects_invalid_page(): void
+    {
+        $this->login();
+
+        $this->getJson('/api/friends?page=0')->assertUnprocessable()
+            ->assertJsonValidationErrors('page');
+        Http::assertNothingSent();
     }
 
     public function test_cached_steam_list_still_detects_new_killfeed_registrations(): void
@@ -171,6 +196,22 @@ class FriendsApiTest extends IsolatedDatabaseTestCase
 
         $this->assertDatabaseMissing('friends', ['user_id' => $user->id, 'friend_id' => $friend->id]);
         $this->assertDatabaseHas('friends', ['user_id' => $friend->id, 'friend_id' => $user->id]);
+    }
+
+    public function test_steam_sync_preserves_explicit_test_friendships(): void
+    {
+        $user = $this->login();
+        $friend = Users::factory()->create();
+        $user->friends()->attach($friend->id, ['is_test_data' => true]);
+        $this->fake([]);
+
+        $this->postJson('/api/friends/sync')->assertOk();
+
+        $this->assertDatabaseHas('friends', [
+            'user_id' => $user->id,
+            'friend_id' => $friend->id,
+            'is_test_data' => true,
+        ]);
     }
 
     public function test_failed_steam_sync_does_not_change_existing_friends(): void

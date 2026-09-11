@@ -4,14 +4,16 @@ namespace App\Http\Controllers;
 
 use App\Models\Users;
 use App\Models\UserStatSnapshots;
+use App\Services\ActivityFeedService;
 use App\Services\ScoreCalculator;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Validator;
 
 class UserStatSnapshotsController extends Controller
 {
-    public function getSnapshotByUser($userId)
+    public function getSnapshotByUser($userId, ActivityFeedService $activityFeed)
     {
         $apiKey = config('services.steam.api_key');
         $apiBase = config('services.steam.api_base');
@@ -39,10 +41,10 @@ class UserStatSnapshotsController extends Controller
             return [$item['name'] => $item['value']];
         })->toArray();
 
-        $this->createSnapshot($userId, $statsAssoc);
+        return $this->createSnapshot($userId, $statsAssoc, $activityFeed);
     }
 
-    private function createSnapshot($userId, $stats)
+    private function createSnapshot($userId, $stats, ActivityFeedService $activityFeed)
     {
         $kills = $stats['total_kills'] ?? 0;
         $deaths = $stats['total_deaths'] ?? 0;
@@ -78,13 +80,13 @@ class UserStatSnapshotsController extends Controller
         ];
 
         try {
-            $snapshot = UserStatSnapshots::updateOrCreate(
-                [
-                    'user_id' => $userId,
-                    'snapshot_date' => now()->toDateString(),
-                ],
-                $data
-            );
+            DB::transaction(function () use ($userId, $data, $activityFeed) {
+                UserStatSnapshots::updateOrCreate(
+                    ['user_id' => $userId, 'snapshot_date' => now()->toDateString()],
+                    $data
+                );
+                $activityFeed->evaluateCurrent(Users::findOrFail($userId));
+            });
         } catch (\Exception $e) {
             \Log::error('Erro ao criar snapshot: '.$e->getMessage());
 

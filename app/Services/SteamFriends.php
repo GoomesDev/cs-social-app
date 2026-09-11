@@ -10,7 +10,25 @@ use RuntimeException;
 
 class SteamFriends
 {
-    public function forUser(Users $user): array
+    public function forUser(Users $user, int $page = 1): array
+    {
+        $result = $this->allForUser($user);
+        $perPage = 25;
+        $total = count($result['data']);
+
+        $result['data'] = array_slice($result['data'], ($page - 1) * $perPage, $perPage);
+        $result['meta'] = [
+            ...$result['meta'],
+            'current_page' => $page,
+            'per_page' => $perPage,
+            'last_page' => max(1, (int) ceil($total / $perPage)),
+            'has_more' => $page * $perPage < $total,
+        ];
+
+        return $result;
+    }
+
+    private function allForUser(Users $user): array
     {
         if (! is_string(config('services.steam.api_key')) || config('services.steam.api_key') === '') {
             throw new RuntimeException('steam_not_configured');
@@ -42,12 +60,12 @@ class SteamFriends
 
     public function syncForUser(Users $user): array
     {
-        $result = $this->forUser($user);
+        $result = $this->allForUser($user);
         $friendIds = array_values(array_filter(array_column($result['data'], 'user_id')));
         $syncedAt = now();
 
         DB::transaction(function () use ($user, $friendIds, $syncedAt) {
-            $query = DB::table('friends')->where('user_id', $user->id);
+            $query = DB::table('friends')->where('user_id', $user->id)->where('is_test_data', false);
 
             if ($friendIds === []) {
                 $query->delete();
@@ -57,6 +75,7 @@ class SteamFriends
                     'user_id' => $user->id,
                     'friend_id' => $friendId,
                     'created_at' => $syncedAt,
+                    'is_test_data' => false,
                 ], $friendIds));
             }
 

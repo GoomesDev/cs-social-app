@@ -23,6 +23,8 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         RateLimiter::for('friends', fn (Request $request) => Limit::perMinute(20)->by((string) $request->user()?->id ?: $request->ip()));
+        RateLimiter::for('feed', fn (Request $request) => Limit::perMinute(60)->by((string) $request->user()?->id ?: $request->ip()));
+        RateLimiter::for('groups', fn (Request $request) => Limit::perMinute(60)->by((string) $request->user()?->id ?: $request->ip()));
         RateLimiter::for('steam-auth-browser', fn (Request $request) => Limit::perMinute(20)->by($request->ip()));
         RateLimiter::for('steam-auth-exchange', fn (Request $request) => [
             Limit::perMinute(20)->by('ip:'.$request->ip()),
